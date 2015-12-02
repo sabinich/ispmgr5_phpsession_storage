@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mgrdata> 
+  <handler name="memcache_addon" type="xml">
+    <event name="feature.edit" after="yes"/>
+  </handler>
+  <handler name="memcache_addon_new_webdomain" type="xml">
+    <event name="webdomain" after="yes"/>
+  </handler>
+  <handler name="memcache_addon_del_webdomain" type="xml">
+    <event name="webdomain.delete" after="yes"/>
+  </handler>
+
+<lang name="ru"> 
+    <messages name="feature.edit">
+      <msg name="ses_to_memcache">Хранение сессий в memcached</msg>
+      <msg name="hint_ses_to_memcache">Системные требования: memcached + php-расширение memcache, apache</msg>
+    </messages>
+</lang> 
+</mgrdata>
