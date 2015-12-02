@@ -1,0 +1,36 @@
+#!/usr/bin/python
+import re
+import inspect
+import datetime
+import sys
+import xml.etree.ElementTree as ET
+import json
+import os
+import ConfigParser
+import time
+from inspect import currentframe, getframeinfo
+
+from memcache_addon_utils import *
+
+LOG = Log(LOG_PATH)
+TREE = ET.parse(sys.stdin)
+CONFIG_PARAMS = {}
+if os.path.isfile(CONFIG_PARAMS_PATH):
+        file = open(CONFIG_PARAMS_PATH, "rb")
+        portalocker.lock(file, portalocker.LOCK_SH)
+        CONFIG_PARAMS = json.load( file )
+        portalocker.unlock(file)
+
+if "PARAM_ses_to_memcache" not in CONFIG_PARAMS:
+        TREE.write(sys.stdout)
+        sys.exit()
+if "PARAM_name" in os.environ:
+	webdomain_to_delete = os.environ["PARAM_name"]
+	if webdomain_to_delete in CONFIG_PARAMS:
+		del CONFIG_PARAMS[webdomain_to_delete]
+		file = open(CONFIG_PARAMS_PATH, "wb")
+		portalocker.lock(file, portalocker.LOCK_EX)
+		json.dump(CONFIG_PARAMS, file )
+		portalocker.unlock(file)
+
+TREE.write(sys.stdout)

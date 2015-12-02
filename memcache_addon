@@ -1,0 +1,82 @@
+#!/usr/bin/python
+import re
+import inspect
+import datetime
+import sys
+import xml.etree.ElementTree as ET
+import json
+import os
+import ConfigParser
+import portalocker
+from memcache_addon_utils import *
+from inspect import currentframe, getframeinfo
+LOG = Log(LOG_PATH)
+
+TREE = ET.parse(sys.stdin)
+
+if os.environ.get("PARAM_elid") != 'web':
+	TREE.write(sys.stdout)
+	sys.exit()
+
+CONFIG_PARAMS = {}
+if os.path.isfile(CONFIG_PARAMS_PATH):
+	file = open(CONFIG_PARAMS_PATH, "rb")
+	portalocker.lock(file, portalocker.LOCK_SH)
+	CONFIG_PARAMS = json.load( file )
+	portalocker.unlock(file)
+
+if os.environ.get("PARAM_clicked_button") == "ok": 
+	res = os.popen("php -i | grep 'Loaded Configuration File'").read().split("=>")
+	if len(res) < 2:
+		LOG.write("FAILED: php -i | grep 'Loaded Configuration File'")
+		pass
+		#TODO THROW ERROR
+	path_php_ini = res[1].strip()
+	php_ini = ConfigParser.ConfigParser()
+	php_ini.read(path_php_ini)
+		
+	need_change = CONFIG_PARAMS.get("PARAM_ses_to_memcache") != os.environ.get("PARAM_ses_to_memcache")
+		
+	if need_change:
+		if os.environ.get("PARAM_ses_to_memcache") == "on":
+			CONFIG_PARAMS['PARAM_ses_to_memcache'] = "on"
+
+			if not php_ini.has_section('Session'):
+				php_ini.add_section('Session')
+		
+			php_ini.set('Session', 'session.save_handler', 'memcache')
+			php_ini.set('Session', 'session.name', 'SESSIONID')
+			php_ini.set('Session', 'session.save_path', 'tcp://localhost:11211')
+		else:
+			CONFIG_PARAMS["PARAM_ses_to_memcache"] = "off"
+			if php_ini.has_section('Session'):
+       	                	php_ini.set('Session', 'session.save_handler', 'files')
+       	                	php_ini.set('Session', 'session.name', 'PHPSESSID')
+       	                	php_ini.remove_option('Session', 'session.save_path')
+
+		with open(path_php_ini, 'wb') as configfile:
+    				php_ini.write(configfile)
+
+file = open(CONFIG_PARAMS_PATH, "wb")
+portalocker.lock(file, portalocker.LOCK_EX)
+json.dump(CONFIG_PARAMS, file )
+portalocker.unlock(file)
+
+#let memcache_addon_new_webdomain start.
+os.popen("sbin/mgrctl -m ispmgr webdomain -o xml").read()
+
+res = TREE.find('.').find('./metadata/form')
+if res:
+	new_node = ET.Element('field', {'name' : 'ses_to_memcache'})
+	new_node.append( ET.Element('input', {'type' : 'checkbox', 
+						'name' : 'ses_to_memcache'
+						}) )
+	res.append( new_node )
+	memcache_checkbox = ET.Element("ses_to_memcache")
+	if CONFIG_PARAMS.get("PARAM_ses_to_memcache") == "on":
+		memcache_checkbox.text = "on"
+	else:
+		memcache_checkbox.text = "off"
+	TREE.find(".").append( memcache_checkbox )
+
+TREE.write(sys.stdout)
