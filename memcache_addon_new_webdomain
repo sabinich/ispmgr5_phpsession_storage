@@ -34,13 +34,16 @@ if CONFIG_PARAMS["PARAM_ses_to_memcache"] == "on":
 		apache_data = os.popen("sbin/mgrctl -m ispmgr webdomain.plain elid=%s -o xml" % name.text).read()
 		apache_data = ET.fromstring( apache_data ).find("./apache_data").text
 		#save original values
-		CONFIG_PARAMS[name.text] = re.search("php_admin_value session.save_path\s+(\S+)", apache_data).groups(1)
-		new_data = re.sub("(php_admin_value session.save_path\s+)(\S+)", r'\1"%s"' % "tcp://localhost:11211", apache_data)
-		res = os.popen("sbin/mgrctl -m ispmgr webdomain.plain elid=%s apache_data='%s' sok=ok" % (name.text, new_data) ).read()
-		if res.strip() != "OK":
-			LOG.write("ispmgr error: %s" % res)
-			pass
-			#TODO ERROR
+		pattern = re.search("php_admin_value session.save_path\s+(\S+)", apache_data)
+		#TODO do things if not pattern
+		if pattern:
+			CONFIG_PARAMS[name.text] = pattern.groups(1)
+			new_data = re.sub("(php_admin_value session.save_path\s+)(\S+)", r'\1"%s"' % "tcp://localhost:11211", apache_data)
+			res = os.popen("sbin/mgrctl -m ispmgr webdomain.plain elid=%s apache_data='%s' sok=ok" % (name.text, new_data) ).read()
+			if res.strip() != "OK":
+				LOG.write("ispmgr error: %s" % res)
+				pass
+				#TODO ERROR
 else:
 	to_delete = []
         for name in TREE.findall("./elem/name"):
